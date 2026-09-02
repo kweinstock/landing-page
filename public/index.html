@@ -177,6 +177,47 @@
 				color: var(--muted);
 			}
 
+			.projects-head {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 16px;
+			}
+
+			.env-toggle {
+				font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+				font-size: 11px;
+				letter-spacing: 0.08em;
+			}
+
+			.env-toggle button {
+				background: none;
+				border: none;
+				padding: 2px 6px;
+				margin: 0;
+				cursor: pointer;
+				color: var(--muted);
+				font: inherit;
+				letter-spacing: inherit;
+				text-transform: uppercase;
+			}
+
+			.env-toggle button[aria-pressed="true"] {
+				color: var(--accent-ink);
+				border-bottom: 1px solid var(--accent);
+			}
+
+			.env-banner {
+				font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+				font-size: 11px;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--surface);
+				background: var(--accent);
+				text-align: center;
+				padding: 6px 12px;
+			}
+
 			@media (max-width: 560px) {
 				.wrap { padding: 64px 22px 88px; }
 				h1 { font-size: 32px; }
@@ -185,6 +226,7 @@
 		</style>
 	</head>
 	<body>
+		<div class="env-banner" id="env-banner" hidden>Testing environment</div>
 		<div class="wrap">
 			<header>
 				<p class="eyebrow">kweinstock.dev</p>
@@ -217,7 +259,13 @@
 			</section>
 
 			<section>
-				<h2>Projects</h2>
+				<div class="projects-head">
+					<h2>Projects</h2>
+					<div class="env-toggle" id="env-toggle" hidden>
+						<button type="button" data-env="production" aria-pressed="true">Production</button>
+						<button type="button" data-env="testing" aria-pressed="false">Testing</button>
+					</div>
+				</div>
 				<ul class="projects" id="projects">
 					<li><p class="project-title empty">Loading.</p></li>
 				</ul>
@@ -233,35 +281,98 @@
 		<script>
 			(function () {
 				var list = document.getElementById("projects");
+				var toggle = document.getElementById("env-toggle");
+				var banner = document.getElementById("env-banner");
+				var items = [];
+
 				function esc(s) {
 					return String(s).replace(/[&<>"]/g, function (c) {
 						return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
 					});
 				}
+
+				// testing.kweinstock.dev and testing.foo.kweinstock.dev both start with "testing."
+				var onTesting = location.hostname.split(".")[0] === "testing";
+
+				function readEnv() {
+					try {
+						var v = localStorage.getItem("env");
+						if (v === "testing" || v === "production") return v;
+					} catch (e) {}
+					return onTesting ? "testing" : "production";
+				}
+
+				function writeEnv(v) {
+					try {
+						localStorage.setItem("env", v);
+					} catch (e) {}
+				}
+
+				function toTesting(url) {
+					try {
+						var u = new URL(url);
+						if (u.hostname.split(".")[0] !== "testing") {
+							u.hostname = "testing." + u.hostname;
+						}
+						return u.toString();
+					} catch (e) {
+						return url;
+					}
+				}
+
+				function render(env) {
+					if (!Array.isArray(items) || items.length === 0) {
+						list.innerHTML =
+							'<li><p class="project-title empty">Nothing published yet. Check back soon.</p></li>';
+						return;
+					}
+					list.innerHTML = items
+						.map(function (p) {
+							var href = p.url
+								? env === "testing"
+									? toTesting(p.url)
+									: p.url
+								: "";
+							var title = href
+								? '<a href="' + esc(href) + '">' + esc(p.name) + "</a>"
+								: esc(p.name);
+							var note = p.note
+								? '<p class="project-note">' + esc(p.note) + "</p>"
+								: "";
+							return '<li><p class="project-title">' + title + "</p>" + note + "</li>";
+						})
+						.join("");
+				}
+
+				function apply(env) {
+					var buttons = toggle.querySelectorAll("button");
+					for (var i = 0; i < buttons.length; i++) {
+						buttons[i].setAttribute(
+							"aria-pressed",
+							buttons[i].getAttribute("data-env") === env ? "true" : "false"
+						);
+					}
+					banner.hidden = env !== "testing";
+					render(env);
+				}
+
+				toggle.addEventListener("click", function (e) {
+					var b = e.target.closest("button");
+					if (!b) return;
+					var env = b.getAttribute("data-env");
+					writeEnv(env);
+					apply(env);
+				});
+
 				fetch("/projects.json", { cache: "no-cache" })
 					.then(function (r) {
 						if (!r.ok) throw new Error("status " + r.status);
 						return r.json();
 					})
-					.then(function (items) {
-						if (!Array.isArray(items) || items.length === 0) {
-							list.innerHTML =
-								'<li><p class="project-title empty">Nothing published yet. Check back soon.</p></li>';
-							return;
-						}
-						list.innerHTML = items
-							.map(function (p) {
-								var title = p.url
-									? '<a href="' + esc(p.url) + '">' + esc(p.name) + "</a>"
-									: esc(p.name);
-								var note = p.note
-									? '<p class="project-note">' + esc(p.note) + "</p>"
-									: "";
-								return (
-									'<li><p class="project-title">' + title + "</p>" + note + "</li>"
-								);
-							})
-							.join("");
+					.then(function (data) {
+						items = data;
+						toggle.hidden = false;
+						apply(readEnv());
 					})
 					.catch(function () {
 						list.innerHTML =

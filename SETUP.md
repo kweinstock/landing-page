@@ -1,24 +1,47 @@
 # Deploy and project workflow
 
+Deploys run from GitHub Actions using `cloudflare/wrangler-action`. Two branches
+are wired in `.github/workflows/deploy.yml`:
+
+- `main` runs `wrangler deploy` (production)
+- `testing` runs `wrangler deploy --env testing` (testing)
+
+## One time GitHub setup
+
+Set these as GitHub organization secrets so every project repo inherits them.
+Org settings, Secrets and variables, Actions, New organization secret. Give both
+access to all repositories (or the repos you choose).
+
+- `CLOUDFLARE_API_TOKEN` — a token with the "Edit Cloudflare Workers" template
+  scope, plus Zone DNS Edit on the `kweinstock.dev` zone so custom domains can be
+  created.
+- `CLOUDFLARE_ACCOUNT_ID` — from any Workers page in the dashboard.
+
+Nothing per repo after this. Copy the workflow file into each project and it
+works.
+
 ## This repo
 
-`kweinstock.dev` is served by the `landing-page` Worker. Static files live in `public/`.
+`kweinstock.dev` is the `landing-page` Worker, `testing.kweinstock.dev` is
+`landing-page-testing` (the `testing` env in `wrangler.jsonc`). Static files
+live in `public/`.
 
-Auto deploy is handled by Cloudflare Workers Builds:
+- Push to `main` deploys the live site.
+- Push to `testing` deploys the testing site.
 
-1. Cloudflare dashboard, Workers and Pages, `landing-page`, Settings, Builds.
-2. Connect to Git, pick `kweinstock/landing-page`.
-3. Production branch `main`, no build command, deploy command `npx wrangler deploy`.
+Create the testing branch once:
 
-After that, any push to `main` (direct or merged PR) deploys.
+```
+git branch testing
+git push -u origin testing
+```
 
 ## Adding a project
 
-Each project is its own repo and its own Worker on a subdomain.
+Each project is its own repo and its own Worker, on `name.kweinstock.dev` with a
+`testing.name.kweinstock.dev` counterpart.
 
-### 1. New repo from the template
-
-Create the project repo. In its `wrangler.jsonc` set the name and the custom domain:
+### 1. wrangler.jsonc
 
 ```jsonc
 {
@@ -27,24 +50,43 @@ Create the project repo. In its `wrangler.jsonc` set the name and the custom dom
   "assets": { "directory": "./public" }, // or a build output dir
   "routes": [
     { "pattern": "myproject.kweinstock.dev", "custom_domain": true }
-  ]
+  ],
+  "env": {
+    "testing": {
+      "name": "myproject-testing",
+      "routes": [
+        { "pattern": "testing.myproject.kweinstock.dev", "custom_domain": true }
+      ]
+    }
+  }
 }
 ```
 
-Static project: point `assets.directory` at the output folder and set the build command in Workers Builds (for example `npm run build`).
-Dynamic project: add a `main` entry pointing at the Worker script, keep or drop `assets` as needed.
+Static project: point `assets.directory` at the build output and add
+`- run: npm run build` in the workflow.
+Dynamic project: add a `main` entry for the Worker script.
 
-### 2. DNS
+### 2. Workflow
 
-The `custom_domain: true` route makes Cloudflare create the `myproject.kweinstock.dev` DNS record on first deploy. Nothing to do by hand as long as `kweinstock.dev` is on the same Cloudflare account.
+Copy `.github/workflows/deploy.yml` from this repo into the project. It already
+handles both branches. The org secrets cover auth.
 
-### 3. Connect Workers Builds
+### 3. DNS and certificates
 
-Same steps as the landing page, against the new repo. From then on the project self deploys on push.
+`custom_domain: true` makes Cloudflare create the DNS record and provision a
+certificate on first deploy, including for the two label `testing.myproject`
+host. Nothing to do by hand while `kweinstock.dev` is on the same account.
 
-### 4. List it on the landing page
+### 4. Branches
 
-Edit `public/projects.json` in this repo and add an entry:
+```
+git push -u origin main
+git branch testing && git push -u origin testing
+```
+
+### 5. List it on the landing page
+
+Edit `public/projects.json` in this repo:
 
 ```json
 {
@@ -54,4 +96,10 @@ Edit `public/projects.json` in this repo and add an entry:
 }
 ```
 
-Push to `main`. The landing page reads this file at load time, so the list updates on the next deploy. Order in the file is the order shown. Remove an entry to delist a project.
+Always use the production URL here. The Testing toggle on the landing page
+rewrites every link by prefixing the host with `testing.`, so
+`myproject.kweinstock.dev` becomes `testing.myproject.kweinstock.dev`. The
+toggle choice is remembered, and `testing.kweinstock.dev` defaults to Testing.
+
+Push to `main`. The list updates on the next landing page deploy. Order in the
+file is the display order. Remove an entry to delist.
