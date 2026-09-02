@@ -1,0 +1,33 @@
+name: Sync testing to main
+
+# After anything lands on main (e.g. a merged `testing -> main` PR), fast-forward
+# `testing` up to main so it never shows as "behind". If `testing` has unmerged
+# commits of its own the push is a non-fast-forward and is skipped — nothing is
+# clobbered.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-testing
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Fast-forward testing
+        run: |
+          if git push origin HEAD:testing; then
+            echo "testing fast-forwarded to $(git rev-parse --short HEAD)"
+          else
+            echo "testing has diverged; leaving it alone" >&2
+          fi
