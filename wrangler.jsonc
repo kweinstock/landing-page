@@ -7,8 +7,12 @@
 	"name": "landing-page",
 	"compatibility_date": "2026-08-31",
 	"assets": {
-		// The path to the directory containing the `index.html` file to be served at `/`
-		"directory": "./public"
+		// Vite build output. Run `npm run build` (or set it as the Workers Builds
+		// build command) before `wrangler deploy`.
+		"directory": "./dist",
+		// Serve dist/404.html (with a 404 status) for any path that isn't a file
+		// here and isn't claimed by a more specific project route.
+		"not_found_handling": "404-page"
 	},
 	"observability": {
 		"enabled": true

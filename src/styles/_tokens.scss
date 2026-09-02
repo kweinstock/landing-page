@@ -1,0 +1,4 @@
+// Type stacks. Colors live as CSS custom properties in main.scss so they can
+// switch on prefers-color-scheme at runtime.
+$font-serif: "Iowan Old Style", "Palatino Linotype", palatino, georgia, "Times New Roman", serif;
+$font-mono: ui-monospace, sfmono-regular, "SF Mono", menlo, consolas, monospace;
