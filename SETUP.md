@@ -1,33 +1,45 @@
 # Deploy and project workflow
 
-Deploys run from GitHub Actions using `cloudflare/wrangler-action`. Two branches
-are wired in `.github/workflows/deploy.yml`:
+Deploys run through Cloudflare Workers Builds. No API tokens, no GitHub secrets.
+Each Worker has its own build connection that watches one branch and runs one
+deploy command.
 
-- `main` runs `wrangler deploy` (production)
-- `testing` runs `wrangler deploy --env testing` (testing)
+## Branch model
 
-## One time GitHub setup
+Every project has two Workers built from the same repo:
 
-Set these as GitHub organization secrets so every project repo inherits them.
-Org settings, Secrets and variables, Actions, New organization secret. Give both
-access to all repositories (or the repos you choose).
+| Branch    | Worker              | Deploy command                 | Domain                          |
+| --------- | ------------------- | ------------------------------ | ------------------------------- |
+| `main`    | `name`              | `npx wrangler deploy`          | `name.kweinstock.dev`           |
+| `testing` | `name-testing`      | `npx wrangler deploy --env testing` | `testing.name.kweinstock.dev` |
 
-- `CLOUDFLARE_API_TOKEN` — a token with the "Edit Cloudflare Workers" template
-  scope, plus Zone DNS Edit on the `kweinstock.dev` zone so custom domains can be
-  created.
-- `CLOUDFLARE_ACCOUNT_ID` — from any Workers page in the dashboard.
-
-Nothing per repo after this. Copy the workflow file into each project and it
-works.
+The two domains and Worker names come from `wrangler.jsonc`. The branch and the
+deploy command are set in each Worker's Workers Builds settings.
 
 ## This repo
 
-`kweinstock.dev` is the `landing-page` Worker, `testing.kweinstock.dev` is
-`landing-page-testing` (the `testing` env in `wrangler.jsonc`). Static files
-live in `public/`.
+- `kweinstock.dev` is the `landing-page` Worker, built from `main`.
+- `testing.kweinstock.dev` is `landing-page-testing`, built from `testing`
+  (the `env.testing` section in `wrangler.jsonc`).
 
-- Push to `main` deploys the live site.
-- Push to `testing` deploys the testing site.
+Static files live in `public/`.
+
+### Connect the builds (once per Worker)
+
+For each of `landing-page` and `landing-page-testing`:
+
+1. Cloudflare dashboard, Workers and Pages, open the Worker.
+2. Settings, Builds, Connect to a Git repository, pick `kweinstock/landing-page`.
+3. Set:
+   - Build branch: `main` for `landing-page`, `testing` for `landing-page-testing`
+   - Build command: leave empty
+   - Deploy command:
+     - `landing-page`: `npx wrangler deploy`
+     - `landing-page-testing`: `npx wrangler deploy --env testing`
+4. Save.
+
+After that, a push to `main` deploys the live site and a push to `testing`
+deploys the testing site.
 
 Create the testing branch once:
 
@@ -38,8 +50,8 @@ git push -u origin testing
 
 ## Adding a project
 
-Each project is its own repo and its own Worker, on `name.kweinstock.dev` with a
-`testing.name.kweinstock.dev` counterpart.
+Each project is its own repo with two Workers, on `name.kweinstock.dev` and
+`testing.name.kweinstock.dev`.
 
 ### 1. wrangler.jsonc
 
@@ -62,27 +74,34 @@ Each project is its own repo and its own Worker, on `name.kweinstock.dev` with a
 }
 ```
 
-Static project: point `assets.directory` at the build output and add
-`- run: npm run build` in the workflow.
-Dynamic project: add a `main` entry for the Worker script.
+Static project: point `assets.directory` at the build output and set the build
+command in Workers Builds (for example `npm run build`).
+Dynamic project: add a `main` entry pointing at the Worker script.
 
-### 2. Workflow
-
-Copy `.github/workflows/deploy.yml` from this repo into the project. It already
-handles both branches. The org secrets cover auth.
-
-### 3. DNS and certificates
-
-`custom_domain: true` makes Cloudflare create the DNS record and provision a
-certificate on first deploy, including for the two label `testing.myproject`
-host. Nothing to do by hand while `kweinstock.dev` is on the same account.
-
-### 4. Branches
+### 2. Branches
 
 ```
 git push -u origin main
 git branch testing && git push -u origin testing
 ```
+
+### 3. Connect Workers Builds twice
+
+Create two Workers, `myproject` and `myproject-testing`, and connect each to the
+repo as described above: `myproject` watches `main` with `npx wrangler deploy`,
+`myproject-testing` watches `testing` with `npx wrangler deploy --env testing`.
+
+### 4. DNS and certificates
+
+`custom_domain: true` makes Cloudflare create the DNS record and provision a
+certificate on the first successful deploy of each Worker, including for the two
+label `testing.myproject` host. Nothing to do by hand while `kweinstock.dev` is
+on the same account.
+
+If a Workers Builds deploy is the very first time a custom domain is created and
+it fails on permissions, run that first deploy once from your machine with
+`npx wrangler deploy` (or `--env testing`) while logged in, then let Workers
+Builds take over.
 
 ### 5. List it on the landing page
 
@@ -96,10 +115,10 @@ Edit `public/projects.json` in this repo:
 }
 ```
 
-Always use the production URL here. The Testing toggle on the landing page
-rewrites every link by prefixing the host with `testing.`, so
-`myproject.kweinstock.dev` becomes `testing.myproject.kweinstock.dev`. The
-toggle choice is remembered, and `testing.kweinstock.dev` defaults to Testing.
+Always use the production URL. The Testing toggle on the landing page rewrites
+every link by prefixing the host with `testing.`, so `myproject.kweinstock.dev`
+becomes `testing.myproject.kweinstock.dev`. The toggle choice is remembered, and
+`testing.kweinstock.dev` defaults to Testing.
 
 Push to `main`. The list updates on the next landing page deploy. Order in the
 file is the display order. Remove an entry to delist.
