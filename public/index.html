@@ -218,16 +218,56 @@
 
 			<section>
 				<h2>Projects</h2>
-				<ul class="projects">
-					<li>
-						<p class="project-title empty">Nothing published yet. Check back soon.</p>
-					</li>
+				<ul class="projects" id="projects">
+					<li><p class="project-title empty">Loading.</p></li>
 				</ul>
+				<noscript>
+					<p class="empty">Project list requires JavaScript. See projects.json.</p>
+				</noscript>
 			</section>
 
 			<footer>
 				Built and hosted on Cloudflare Workers.
 			</footer>
 		</div>
+		<script>
+			(function () {
+				var list = document.getElementById("projects");
+				function esc(s) {
+					return String(s).replace(/[&<>"]/g, function (c) {
+						return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+					});
+				}
+				fetch("/projects.json", { cache: "no-cache" })
+					.then(function (r) {
+						if (!r.ok) throw new Error("status " + r.status);
+						return r.json();
+					})
+					.then(function (items) {
+						if (!Array.isArray(items) || items.length === 0) {
+							list.innerHTML =
+								'<li><p class="project-title empty">Nothing published yet. Check back soon.</p></li>';
+							return;
+						}
+						list.innerHTML = items
+							.map(function (p) {
+								var title = p.url
+									? '<a href="' + esc(p.url) + '">' + esc(p.name) + "</a>"
+									: esc(p.name);
+								var note = p.note
+									? '<p class="project-note">' + esc(p.note) + "</p>"
+									: "";
+								return (
+									'<li><p class="project-title">' + title + "</p>" + note + "</li>"
+								);
+							})
+							.join("");
+					})
+					.catch(function () {
+						list.innerHTML =
+							'<li><p class="project-title empty">Project list is unavailable right now.</p></li>';
+					});
+			})();
+		</script>
 	</body>
 </html>
