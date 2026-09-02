@@ -207,17 +207,6 @@
 				border-bottom: 1px solid var(--accent);
 			}
 
-			.env-banner {
-				font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-				font-size: 11px;
-				letter-spacing: 0.1em;
-				text-transform: uppercase;
-				color: var(--surface);
-				background: var(--accent);
-				text-align: center;
-				padding: 6px 12px;
-			}
-
 			@media (max-width: 560px) {
 				.wrap { padding: 64px 22px 88px; }
 				h1 { font-size: 32px; }
@@ -226,7 +215,6 @@
 		</style>
 	</head>
 	<body>
-		<div class="env-banner" id="env-banner" hidden>Testing environment</div>
 		<div class="wrap">
 			<header>
 				<p class="eyebrow">kweinstock.dev</p>
@@ -282,7 +270,6 @@
 			(function () {
 				var list = document.getElementById("projects");
 				var toggle = document.getElementById("env-toggle");
-				var banner = document.getElementById("env-banner");
 				var items = [];
 
 				function esc(s) {
@@ -352,7 +339,6 @@
 							buttons[i].getAttribute("data-env") === env ? "true" : "false"
 						);
 					}
-					banner.hidden = env !== "testing";
 					render(env);
 				}
 
