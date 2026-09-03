@@ -1,7 +1,12 @@
 [
 	{
-		"name": "Example Project",
-		"path": "example",
-		"note": "Served by its own Worker at /example/. Replace or delete this entry."
+		"name": "Global Ant Farm",
+		"path": "ant-farm",
+		"note": "A persistent digital ant colony simulation where thousands of autonomous agents live and interact in a shared environment."
+	},
+	{
+		"name": "Beat The Bot Racing",
+		"path": "racing",
+		"note": "A browser-based driving time-trial game"
 	}
 ]

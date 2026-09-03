@@ -61,5 +61,10 @@ Deploys run through Cloudflare Workers Builds. See [SETUP.md](SETUP.md). Set the
 Workers Builds **build command** to `npm run build` and the **deploy command** to
 `npx wrangler deploy` (production) or `npx wrangler deploy --env testing`.
 
-To add or remove a project, edit [public/projects.json](public/projects.json).
-See [SETUP.md](SETUP.md) for standing up the project's own Worker.
+## Adding a project
+
+Run `../new-project/New Project.vbs` (see `../new-project/README.md`). Its GUI
+scaffolds a sibling repo from the template, pushes to the GitHub repo you point
+it at, and does the first deploy of both Workers. Afterwards, list it in
+[public/projects.json](public/projects.json) and connect Workers Builds in the
+Cloudflare dashboard. [SETUP.md](SETUP.md) explains the routing model behind it.
